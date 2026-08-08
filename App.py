@@ -16,6 +16,50 @@ from src.custom_resnet import prediction_img
 from src.Treatment import treatment
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+# CauseHouse design-system touches that the native Streamlit theme can't express:
+# hard offset "sticker" shadows and uppercase pill chips.
+st.markdown("""
+<style>
+div[data-testid="stButton"] button[kind="primary"] {
+    box-shadow: 4px 4px 0px 0px #1D2B1F;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+div[data-testid="stButton"] button[kind="primary"]:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px 0px #1D2B1F;
+}
+div[data-testid="stButton"] button[kind="primary"]:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px 0px #1D2B1F;
+}
+div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] .ch-result-anchor) {
+    box-shadow: 4px 4px 0px 0px #1D2B1F;
+}
+.ch-eyebrow {
+    display: inline-block;
+    background: #BFEA4B;
+    color: #1D2B1F;
+    font-family: "Inter", sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    border-radius: 9999px;
+    margin-bottom: 14px;
+}
+section[data-testid="stSidebar"] label p {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+    font-weight: 700;
+    color: #6D7B6F;
+}
+</style>
+""", unsafe_allow_html=True)
+
 class_name = ['Apple___Apple_scab', 'Apple___Black_rot', 'Apple___Cedar_apple_rust', 'Apple___healthy',
                        'Blueberry___healthy', 'Cherry_(including_sour)___healthy', 'Cherry_(including_sour)___Powdery_mildew',
                        'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot', 'Corn_(maize)___Common_rust_', 'Corn_(maize)___healthy',
@@ -34,7 +78,8 @@ st.sidebar.title("Dashboard")
 app_mode = st.sidebar.selectbox("Select Page",["Home","About","Disease Recognition"])
 
 if(app_mode == "Home"):
-    st.header("CROPS DISEASE PREDICTION SYSTEM")
+    st.markdown('<span class="ch-eyebrow">🌿 AI-संचालित रोग पहचान</span>', unsafe_allow_html=True)
+    st.title("Crops Disease Prediction System")
     image_path = 'uploads/UI image/home_page.jpeg'
     st.image(image_path, width=850)
 
@@ -84,10 +129,8 @@ elif(app_mode == 'About'):
     # Convert to DataFrame
     df = pd.DataFrame(data)
 
-    st.markdown(
-        "<h3 style='text-align: center; color: yellow;'>🌿 List of Every Crops with Disease</h3>",
-        unsafe_allow_html=True
-    )
+    st.markdown('<span class="ch-eyebrow">🌿 38 Classes</span>', unsafe_allow_html=True)
+    st.subheader("List of Every Crop with Disease")
 
     st.dataframe(df, use_container_width=True)
 
@@ -122,9 +165,8 @@ elif(app_mode=="Disease Recognition"):
         st.warning("Please upload an image file to continue.")
 
     #Predict button
-    if(st.button("Predict")):
+    if(st.button("Predict", type="primary")):
         st.snow()
-        st.write("Our Prediction")
         start = time.time()
 
         result = prediction_img(image)  # custom_resnet.py
@@ -132,7 +174,6 @@ elif(app_mode=="Disease Recognition"):
         #result = prediction_image(image)  // CNAM_model.py
         #Reading Labels
 
-        st.success(f"Predicted Class is --->  {class_name[result]}")
         category =[]
         for i in class_name:
             category.append(i)
@@ -141,7 +182,10 @@ elif(app_mode=="Disease Recognition"):
                 output = category[i]
                 break
 
-        treatment(output)
+        with st.container(border=True):
+            st.markdown('<div class="ch-result-anchor"></div><span class="ch-eyebrow">Our Prediction</span>', unsafe_allow_html=True)
+            st.success(f"Predicted Class is --->  {class_name[result]}")
+            treatment(output)
         end = time.time()
         logging.info(f"Prediction Response Time: {end - start:.4f} sec")
         #  streamlit run App.py
