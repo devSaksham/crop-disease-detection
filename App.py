@@ -1,5 +1,5 @@
 import streamlit as st
-st.set_page_config(page_title="फसल एवं रोग सूची", layout="wide")
+st.set_page_config(page_title="फसल एवं रोग सूची / Crop Disease System", layout="wide")
 
 import pandas as pd
 import time
@@ -19,7 +19,8 @@ from src.custom_resnet import prediction_img
 from src.Treatment import treatment, _display_names
 from src.Severity import compute_severity
 from src.LocationTreatment import reverse_geocode, forward_geocode, get_location_treatment_plan
-from src.Weather import get_weather_context, format_weather_hi
+from src.Weather import get_weather_context, format_weather
+from src.i18n import t, get_lang, LANGUAGES
 from streamlit_js_eval import get_geolocation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -81,75 +82,61 @@ class_name = ['Apple___Apple_scab', 'Apple___Black_rot', 'Apple___Cedar_apple_ru
 
 
 #Sidebar.............................................................
-st.sidebar.title("Dashboard")
-app_mode = st.sidebar.selectbox("Select Page",["Home","About","Disease Recognition"])
+st.sidebar.title(t("dashboard_title"))
 
-if(app_mode == "Home"):
-    st.markdown('<span class="ch-eyebrow">🌿 AI-संचालित रोग पहचान</span>', unsafe_allow_html=True)
-    st.title("Crops Disease Prediction System")
+lang = st.sidebar.radio(
+    t("language_label"),
+    list(LANGUAGES.keys()),
+    format_func=lambda k: LANGUAGES[k],
+    key="lang",
+    horizontal=True,
+)
+if st.session_state.get("_prev_lang") != lang:
+    st.session_state["_prev_lang"] = lang
+    # the previous treatment plan was generated in the old language -- drop it
+    st.session_state.pop("treatment_plan", None)
+    st.session_state.pop("treatment_plan_error", None)
+
+PAGE_KEYS = ["home", "about", "predict"]
+app_mode = st.sidebar.selectbox(
+    t("select_page"),
+    PAGE_KEYS,
+    format_func=lambda k: {"home": t("nav_home"), "about": t("nav_about"), "predict": t("nav_predict")}[k],
+    key="app_mode",
+)
+
+if app_mode == "home":
+    st.markdown(f'<span class="ch-eyebrow">{t("home_eyebrow")}</span>', unsafe_allow_html=True)
+    st.title(t("home_title"))
     image_path = 'uploads/UI image/home_page.jpeg'
     st.image(image_path, width=850)
+    st.markdown(t("home_body"))
 
-    st.markdown("""
-    Welcome to the Plant Disease Recognition System! 🌿🔍
-    
-    Our mission is to help in identifying plant diseases efficiently. Upload an image of a plant, and our system will analyze it to detect any signs of diseases. Together, let's protect our crops and ensure a healthier harvest!
+elif app_mode == "about":
+    st.header(t("about_header"))
+    st.markdown(t("about_body"))
 
-    ### How It Works
-    1. **Upload Image:** Go to the **Disease Recognition** page and upload an image of a plant with suspected diseases.
-    2. **Analysis:** Our system will process the image using advanced algorithms to identify potential diseases.
-    3. **Results:** View the results and recommendations for further action.
-
-    ### Why Choose Us?
-    - **Accuracy:** Our system utilizes state-of-the-art machine learning techniques for accurate disease detection.
-    - **User-Friendly:** Simple and intuitive interface for seamless user experience.
-    - **Fast and Efficient:** Receive results in seconds, allowing for quick decision-making.
-
-    ### Get Started
-    Click on the **Disease Recognition** page in the sidebar to upload an image and experience the power of our Plant Disease Recognition System!
-
-    ### About Us
-    Learn more about the project, our team, and our goals on the **About** page.
-    """)
-
-elif(app_mode == 'About'):
-    st.header("About Our Project")
-    st.markdown("""
-                #### About Dataset
-                This dataset is recreated using offline augmentation from the original dataset.The original dataset can be found on this github repo.
-                This dataset consists of about 87K rgb images of healthy and diseased crop leaves which is categorized into 38 different classes.The total dataset is divided into 80/20 ratio of training and validation set preserving the directory structure.
-                A new directory containing 33 test images is created later for prediction purpose.
-                #### Content
-                1. train (70295 images)
-                2. test (33 images)
-                3. validation (17572 images)
-
-                """)
-    # Create structured data for table
     data = []
     for cls in class_name:
-        parts = cls.split("___")
-        crop = parts[0].replace("_", " ")
-        condition = parts[1].replace("_", " ") if len(parts) > 1 else "Healthy"
-        data.append({"फसल का नाम (Crop)": crop, "रोग/अवस्था (Condition)": condition})
-
-    # Convert to DataFrame
+        crop, condition, condition_key = _display_names(cls, lang)
+        if condition_key == 'healthy':
+            condition = t("table_healthy")
+        data.append({t("table_crop_col"): crop, t("table_condition_col"): condition})
     df = pd.DataFrame(data)
 
-    st.markdown('<span class="ch-eyebrow">🌿 38 Classes</span>', unsafe_allow_html=True)
-    st.subheader("List of Every Crop with Disease")
-
+    st.markdown(f'<span class="ch-eyebrow">{t("about_eyebrow")}</span>', unsafe_allow_html=True)
+    st.subheader(t("about_subheader"))
     st.dataframe(df, use_container_width=True)
 
 
-elif(app_mode=="Disease Recognition"):
-    st.header("Disease Recognition")
-    test_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+elif app_mode == "predict":
+    st.header(t("predict_header"))
+    test_image = st.file_uploader(t("upload_label"), type=["jpg", "jpeg", "png"], key="image_uploader")
 
     image = None
     if test_image is not None:
         pil_image = Image.open(test_image).convert('RGB')
-        st.image(pil_image, caption="Uploaded Image", width=400)
+        st.image(pil_image, caption=t("upload_caption"), width=400)
 
         transform = transforms.Compose([
             transforms.Resize((224,224)),
@@ -168,29 +155,23 @@ elif(app_mode=="Disease Recognition"):
         image = image.unsqueeze(0)  # Add batch dimension [1, 3, 224, 224]
         image = to_device(image, device)
     else:
-        st.warning("Please upload an image file to continue.")
+        st.warning(t("upload_warning"))
 
     #Predict button
-    if st.button("Predict", type="primary", disabled=image is None):
+    if st.button(t("predict_button"), type="primary", disabled=image is None, key="predict_btn"):
         st.snow()
         start = time.time()
 
         result, confidence = prediction_img(image)  # custom_resnet.py
         output = class_name[result]
-        crop_hi, condition_hi, _ = _display_names(output)
 
-        st.session_state["prediction"] = {
-            "output": output,
-            "confidence": confidence,
-            "crop_hi": crop_hi,
-            "condition_hi": condition_hi,
-        }
+        st.session_state["prediction"] = {"output": output, "confidence": confidence}
         # a fresh prediction invalidates any previously generated treatment plan / location / weather
         for key in (
             "treatment_plan", "treatment_plan_error",
             "geo_key", "geo_location",
             "manual_geo_text", "manual_geo_latlon",
-            "weather_key", "weather_hi",
+            "weather_key", "weather_context",
         ):
             st.session_state.pop(key, None)
 
@@ -201,37 +182,40 @@ elif(app_mode=="Disease Recognition"):
         pred = st.session_state["prediction"]
         output = pred["output"]
         severity = compute_severity(output)
+        crop_name, condition_name, _ = _display_names(output, lang)
 
         with st.container(border=True):
-            st.markdown('<div class="ch-result-anchor"></div><span class="ch-eyebrow">Our Prediction</span>', unsafe_allow_html=True)
-            st.success(f"Predicted Class is --->  {output}  (विश्वास: {pred['confidence'] * 100:.1f}%)")
+            st.markdown(f'<div class="ch-result-anchor"></div><span class="ch-eyebrow">{t("prediction_eyebrow")}</span>', unsafe_allow_html=True)
+            st.success(f"{t('predicted_class')}: {output}  ({t('confidence')}: {pred['confidence'] * 100:.1f}%)")
             if severity["level"] == "Healthy":
                 st.markdown(
                     f'<span class="ch-eyebrow" style="background:{severity["color"]}22;color:{severity["color"]}">'
-                    f'पौधा स्वस्थ है</span>',
+                    f'{t("plant_healthy")}</span>',
                     unsafe_allow_html=True,
                 )
             else:
                 st.markdown(
                     f'<span class="ch-eyebrow" style="background:{severity["color"]}22;color:{severity["color"]}">'
-                    f'गंभीरता (Severity): {severity["level_hi"]}</span>',
+                    f'{t("severity_label")}: {severity[f"level_{lang}"]}</span>',
                     unsafe_allow_html=True,
                 )
-            treatment(output)
+            treatment(output, lang)
 
         if severity["level"] != "Healthy":
-            st.subheader("स्थान-आधारित उपचार योजना")
+            st.subheader(t("location_section_header"))
+            LOCATION_MODE_KEYS = ["manual", "gps"]
             location_mode = st.radio(
-                "अपना स्थान कैसे देना चाहते हैं?",
-                ["मैन्युअल रूप से दर्ज करें", "मेरा स्थान उपयोग करें (ब्राउज़र)"],
+                t("location_mode_label"),
+                LOCATION_MODE_KEYS,
+                format_func=lambda k: t("location_mode_manual") if k == "manual" else t("location_mode_gps"),
                 key="location_mode",
             )
 
             location_str = None
             lat_lon = None
-            if location_mode == "मैन्युअल रूप से दर्ज करें":
+            if location_mode == "manual":
                 manual_location = st.text_input(
-                    "अपना गाँव/शहर, राज्य दर्ज करें",
+                    t("location_input_label"),
                     key="manual_location",
                 )
                 location_str = manual_location.strip() or None
@@ -252,34 +236,29 @@ elif(app_mode=="Disease Recognition"):
                 if st.session_state.get("geo_location"):
                     location_str = st.session_state["geo_location"]
                     lat_lon = st.session_state.get("geo_key")
-                    st.success(f"पहचाना गया स्थान: {location_str}")
+                    st.success(t("location_detected", location=location_str))
                 elif loc_data is None:
-                    st.info("स्थान की अनुमति माँगी जा रही है... कृपया अपने ब्राउज़र में अनुमति दें।")
+                    st.info(t("geo_waiting"))
                 elif "error" in loc_data:
-                    error_messages = {
-                        0: "आपका ब्राउज़र स्थान सेवा का समर्थन नहीं करता।",
-                        1: "स्थान की अनुमति अस्वीकार कर दी गई। कृपया मैन्युअल रूप से स्थान दर्ज करें।",
-                        2: "स्थान की जानकारी उपलब्ध नहीं है।",
-                        3: "स्थान प्राप्त करने का समय समाप्त हो गया।",
-                    }
                     code = loc_data["error"].get("code", -1)
-                    st.warning(error_messages.get(code, "स्थान प्राप्त नहीं हो सका। कृपया मैन्युअल रूप से दर्ज करें।"))
+                    st.warning(t(f"geo_error_{code}") if code in (0, 1, 2, 3) else t("geo_error_default"))
 
-            weather_hi = None
+            weather_text = None
             if lat_lon:
                 if st.session_state.get("weather_key") != lat_lon:
                     st.session_state["weather_key"] = lat_lon
-                    with st.spinner("मौसम की जानकारी प्राप्त की जा रही है..."):
-                        st.session_state["weather_hi"] = format_weather_hi(get_weather_context(*lat_lon))
-                weather_hi = st.session_state.get("weather_hi")
-                if weather_hi:
-                    with st.expander("🌦️ मौसम की जानकारी (बीता कल, आज, आने वाला कल)"):
-                        st.text(weather_hi)
+                    with st.spinner(t("weather_fetching")):
+                        st.session_state["weather_context"] = get_weather_context(*lat_lon)
+                weather_context = st.session_state.get("weather_context")
+                weather_text = format_weather(weather_context, lang)
+                if weather_text:
+                    with st.expander(t("weather_expander")):
+                        st.text(weather_text)
 
-            if st.button("उपचार योजना प्राप्त करें", disabled=not location_str):
-                with st.spinner("उपचार योजना तैयार की जा रही है..."):
+            if st.button(t("get_plan_button"), disabled=not location_str, key="get_plan_btn"):
+                with st.spinner(t("plan_generating")):
                     plan, error = get_location_treatment_plan(
-                        pred["crop_hi"], pred["condition_hi"], severity, location_str, weather_hi
+                        crop_name, condition_name, severity, location_str, weather_text, lang
                     )
                 if error:
                     st.session_state["treatment_plan_error"] = error
@@ -289,15 +268,8 @@ elif(app_mode=="Disease Recognition"):
                     st.session_state.pop("treatment_plan_error", None)
 
             if "treatment_plan" in st.session_state:
-                st.markdown("#### स्थान-आधारित उपचार योजना")
+                st.markdown(f"#### {t('plan_header')}")
                 st.markdown(st.session_state["treatment_plan"])
             elif "treatment_plan_error" in st.session_state:
                 st.error(st.session_state["treatment_plan_error"])
         #  streamlit run App.py
-
-
-
-
-
-
-

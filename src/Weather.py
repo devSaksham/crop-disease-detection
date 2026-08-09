@@ -14,7 +14,15 @@ import streamlit as st
 
 _DAY_SUMMARY_URL = "https://api.openweathermap.org/data/3.0/onecall/day_summary"
 
-_DAY_LABELS_HI = {-1: "कल (बीता हुआ)", 0: "आज", 1: "कल (आने वाला)"}
+_DAY_LABELS = {
+    "hi": {-1: "कल (बीता हुआ)", 0: "आज", 1: "कल (आने वाला)"},
+    "en": {-1: "Yesterday", 0: "Today", 1: "Tomorrow"},
+}
+_NO_DATA_LABEL = {"hi": "जानकारी उपलब्ध नहीं", "en": "information not available"}
+_FIELD_LABELS = {
+    "hi": {"temp": "तापमान", "humidity": "आर्द्रता", "precip": "वर्षा", "cloud": "बादल"},
+    "en": {"temp": "Temp", "humidity": "Humidity", "precip": "Rain", "cloud": "Cloud"},
+}
 
 
 def _get_api_key():
@@ -45,11 +53,13 @@ def get_weather_context(lat, lon):
     rather than silently missing. Returns None outright if
     OPENWEATHER_API_KEY isn't configured.
 
-    Note: the day_summary endpoint's forward-looking behavior (offset +1,
-    "tomorrow") is documented by OpenWeatherMap as supported up to ~1.5
-    years ahead, but this has not been exercised against a live API key in
-    this codebase -- treat the "tomorrow" figures as unverified until
-    checked against a real response.
+    Note: this endpoint requires OpenWeatherMap's separate "One Call by
+    Call" subscription -- a plain/free-tier API key gets HTTP 401 on every
+    call here (all three offsets fail identically), verified live. If your
+    key isn't subscribed to that plan, every day comes back None and
+    format_weather() returns None -- the app degrades gracefully, but no
+    weather context reaches the treatment plan until you subscribe at
+    https://openweathermap.org/price.
     """
     api_key = _get_api_key()
     if not api_key:
@@ -75,21 +85,26 @@ def _num(value, decimals=1):
         return "?"
 
 
-def format_weather_hi(context):
-    """Render a weather context dict (from get_weather_context) as Hindi text.
+def format_weather(context, lang="hi"):
+    """Render a weather context dict (from get_weather_context) as text.
 
     Days that failed to fetch are called out explicitly (not omitted) so a
     missing "tomorrow" forecast doesn't silently drop out of the prompt.
+    Callers should cache the raw `context` dict, not this formatted string,
+    and re-format at render/prompt time so a language switch doesn't serve
+    stale-language text.
     """
     if not context:
         return None
 
+    day_labels = _DAY_LABELS[lang]
+    fields = _FIELD_LABELS[lang]
     lines = []
     any_data = False
     for offset in (-1, 0, 1):
         day = context.get(offset)
         if not day:
-            lines.append(f"{_DAY_LABELS_HI[offset]}: जानकारी उपलब्ध नहीं")
+            lines.append(f"{day_labels[offset]}: {_NO_DATA_LABEL[lang]}")
             continue
         any_data = True
         temp = day.get("temperature", {})
@@ -97,9 +112,9 @@ def format_weather_hi(context):
         precip = day.get("precipitation", {})
         cloud = day.get("cloud_cover", {})
         lines.append(
-            f"{_DAY_LABELS_HI[offset]}: तापमान {_num(temp.get('min'))}–{_num(temp.get('max'))}°C, "
-            f"आर्द्रता {_num(humidity.get('afternoon'), 0)}%, "
-            f"वर्षा {_num(precip.get('total'))}mm, "
-            f"बादल {_num(cloud.get('afternoon'), 0)}%"
+            f"{day_labels[offset]}: {fields['temp']} {_num(temp.get('min'))}–{_num(temp.get('max'))}°C, "
+            f"{fields['humidity']} {_num(humidity.get('afternoon'), 0)}%, "
+            f"{fields['precip']} {_num(precip.get('total'))}mm, "
+            f"{fields['cloud']} {_num(cloud.get('afternoon'), 0)}%"
         )
     return "\n".join(lines) if any_data else None

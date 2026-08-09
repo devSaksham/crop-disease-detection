@@ -85,33 +85,19 @@ def _client():
     return Groq(api_key=api_key)
 
 
-def get_location_treatment_plan(crop, condition, severity, location, weather_hi=None):
-    """Ask Groq for a location- and weather-aware Hindi treatment plan.
+_NO_KEY_ERROR = {
+    "hi": "GROQ_API_KEY सेट नहीं है। कृपया एनवायरनमेंट वेरिएबल या Streamlit secrets में इसे जोड़ें।",
+    "en": "GROQ_API_KEY is not set. Please add it to your environment variables or Streamlit secrets.",
+}
 
-    severity: dict as returned by src.Severity.compute_severity
-    weather_hi: optional Hindi weather summary text from src.Weather.format_weather_hi
-    Returns (plan_text, None) on success, or (None, error_message) on failure.
-    """
-    client = _client()
-    if client is None:
-        return None, "GROQ_API_KEY सेट नहीं है। कृपया एनवायरनमेंट वेरिएबल या Streamlit secrets में इसे जोड़ें।"
-
-    severity_line = (
-        f"गंभीरता: {severity.get('level_hi', 'अज्ञात')} "
-        f"(रोगजनक प्रकार: {severity.get('pathogen_type') or 'लागू नहीं'}, "
-        f"फैलाव दर: {severity.get('spread_rate') or 'लागू नहीं'}, "
-        f"उपज पर प्रभाव: {severity.get('yield_impact') or 'लागू नहीं'})"
-    )
-
-    weather_block = f"\nमौसम की जानकारी (बीता कल, आज, आने वाला कल):\n{weather_hi}\n" if weather_hi else ""
-
-    prompt = f"""आप एक कृषि विशेषज्ञ हैं जो भारतीय किसानों को फसल रोग प्रबंधन में सलाह देते हैं।
+_PROMPT_TEMPLATE = {
+    "hi": """आप एक कृषि विशेषज्ञ हैं जो भारतीय किसानों को फसल रोग प्रबंधन में सलाह देते हैं।
 
 निम्नलिखित जानकारी के आधार पर एक व्यावहारिक, स्थान-विशिष्ट उपचार योजना हिंदी में दें:
 
 फसल: {crop}
 रोग/अवस्था: {condition}
-{severity_line}
+गंभीरता: {severity_level} (रोगजनक प्रकार: {pathogen_type}, फैलाव दर: {spread_rate}, उपज पर प्रभाव: {yield_impact})
 किसान का स्थान: {location}
 {weather_block}
 कृपया निम्नलिखित शामिल करें:
@@ -121,7 +107,66 @@ def get_location_treatment_plan(crop, condition, severity, location, weather_hi=
 4. इस क्षेत्र की जलवायु और मौसम को ध्यान में रखते हुए सावधानियां
 5. भविष्य में बचाव के उपाय
 
-जवाब संक्षिप्त, स्पष्ट और व्यावहारिक बिंदुओं में दें।"""
+जवाब संक्षिप्त, स्पष्ट और व्यावहारिक बिंदुओं में दें।""",
+    "en": """You are an agricultural expert advising Indian farmers on crop disease management.
+
+Based on the following information, give a practical, location-specific treatment plan in English:
+
+Crop: {crop}
+Disease/condition: {condition}
+Severity: {severity_level} (pathogen type: {pathogen_type}, spread rate: {spread_rate}, yield impact: {yield_impact})
+Farmer's location: {location}
+{weather_block}
+Please include:
+1. Immediate steps
+2. Recommended medicine/product (including locally available options)
+3. Spraying/treatment timing and method -- if weather information is given, pick the right day accounting for rain/humidity
+4. Precautions specific to this region's climate and current weather
+5. Future prevention measures
+
+Keep the answer concise, clear, and in practical bullet points.""",
+}
+
+_WEATHER_BLOCK_LABEL = {
+    "hi": "मौसम की जानकारी (बीता कल, आज, आने वाला कल)",
+    "en": "Weather information (yesterday, today, tomorrow)",
+}
+
+_NOT_APPLICABLE = {"hi": "लागू नहीं", "en": "N/A"}
+
+
+def get_location_treatment_plan(crop, condition, severity, location, weather_text=None, lang="hi"):
+    """Ask Groq for a location- and weather-aware treatment plan.
+
+    severity: dict as returned by src.Severity.compute_severity
+    weather_text: optional weather summary text from src.Weather.format_weather,
+        already formatted in the same `lang`
+    lang: "hi" or "en" -- selects both the prompt language and the expected
+        response language
+    Returns (plan_text, None) on success, or (None, error_message) on failure.
+    """
+    client = _client()
+    if client is None:
+        return None, _NO_KEY_ERROR.get(lang, _NO_KEY_ERROR["hi"])
+
+    na = _NOT_APPLICABLE.get(lang, _NOT_APPLICABLE["hi"])
+    severity_level = severity.get(f"level_{lang}") or severity.get("level_hi", na)
+
+    weather_block = ""
+    if weather_text:
+        weather_block = f"\n{_WEATHER_BLOCK_LABEL.get(lang, _WEATHER_BLOCK_LABEL['hi'])}:\n{weather_text}\n"
+
+    template = _PROMPT_TEMPLATE.get(lang, _PROMPT_TEMPLATE["hi"])
+    prompt = template.format(
+        crop=crop,
+        condition=condition,
+        severity_level=severity_level,
+        pathogen_type=severity.get("pathogen_type") or na,
+        spread_rate=severity.get("spread_rate") or na,
+        yield_impact=severity.get("yield_impact") or na,
+        location=location,
+        weather_block=weather_block,
+    )
 
     try:
         response = client.chat.completions.create(
@@ -130,4 +175,5 @@ def get_location_treatment_plan(crop, condition, severity, location, weather_hi=
         )
         return response.choices[0].message.content, None
     except Exception as e:
-        return None, f"उपचार योजना प्राप्त करने में त्रुटि हुई: {e}"
+        error_prefix = "उपचार योजना प्राप्त करने में त्रुटि हुई" if lang == "hi" else "Error getting treatment plan"
+        return None, f"{error_prefix}: {e}"

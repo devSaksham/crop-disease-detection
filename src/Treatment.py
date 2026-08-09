@@ -1,5 +1,7 @@
 import streamlit as st
 
+from src.TreatmentEn import DETAILED_TREATMENT_EN, _HEALTHY_TEMPLATE_EN, _GENERIC_TEMPLATE_EN
+
 CROP_NAMES_HI = {
     'Apple': 'सेब',
     'Blueberry': 'ब्लूबेरी',
@@ -593,20 +595,29 @@ DETAILED_TREATMENT = {
 }
 
 
-def _display_names(output):
+def _display_names(output, lang='hi'):
     crop_key, _, condition_key = output.partition('___')
-    crop = CROP_NAMES_HI.get(crop_key, crop_key.replace('_', ' '))
-    condition = CONDITION_NAMES_HI.get(condition_key, condition_key.replace('_', ' '))
+    if lang == 'hi':
+        crop = CROP_NAMES_HI.get(crop_key, crop_key.replace('_', ' '))
+        condition = CONDITION_NAMES_HI.get(condition_key, condition_key.replace('_', ' '))
+    else:
+        crop = crop_key.replace('_', ' ')
+        condition = condition_key.replace('_', ' ')
     return crop, condition, condition_key
 
 
-def treatment(output):
-    if output in DETAILED_TREATMENT:
-        st.markdown(DETAILED_TREATMENT[output])
+def treatment(output, lang='hi'):
+    if lang == 'hi':
+        detailed, healthy_tpl, generic_tpl = DETAILED_TREATMENT, _HEALTHY_TEMPLATE, _GENERIC_TEMPLATE
+    else:
+        detailed, healthy_tpl, generic_tpl = DETAILED_TREATMENT_EN, _HEALTHY_TEMPLATE_EN, _GENERIC_TEMPLATE_EN
+
+    if output in detailed:
+        st.markdown(detailed[output])
         return
 
-    crop, condition, condition_key = _display_names(output)
+    crop, condition, condition_key = _display_names(output, lang)
     if condition_key == 'healthy':
-        st.markdown(_HEALTHY_TEMPLATE.format(cls=output, crop=crop))
+        st.markdown(healthy_tpl.format(cls=output, crop=crop))
     else:
-        st.markdown(_GENERIC_TEMPLATE.format(cls=output, crop=crop, condition=condition))
+        st.markdown(generic_tpl.format(cls=output, crop=crop, condition=condition))

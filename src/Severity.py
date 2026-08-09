@@ -60,11 +60,11 @@ _HEALTHY_CLASSES = {
 }
 
 LEVEL_INFO = {
-    "Critical": {"label_hi": "गंभीर", "color": "#B3261E"},
-    "High": {"label_hi": "उच्च", "color": "#E8590C"},
-    "Medium": {"label_hi": "मध्यम", "color": "#C9971C"},
-    "Low": {"label_hi": "निम्न", "color": "#2F7D32"},
-    "Healthy": {"label_hi": "स्वस्थ", "color": "#2F7D32"},
+    "Critical": {"label_hi": "गंभीर", "label_en": "Critical", "color": "#B3261E"},
+    "High": {"label_hi": "उच्च", "label_en": "High", "color": "#E8590C"},
+    "Medium": {"label_hi": "मध्यम", "label_en": "Medium", "color": "#C9971C"},
+    "Low": {"label_hi": "निम्न", "label_en": "Low", "color": "#2F7D32"},
+    "Healthy": {"label_hi": "स्वस्थ", "label_en": "Healthy", "color": "#2F7D32"},
 }
 
 
@@ -90,6 +90,7 @@ def compute_severity(class_key):
         return {
             "level": "Healthy",
             "level_hi": info["label_hi"],
+            "level_en": info["label_en"],
             "color": info["color"],
             "score": None,
             "pathogen_type": None,
@@ -104,6 +105,7 @@ def compute_severity(class_key):
         return {
             "level": "Unknown",
             "level_hi": "अज्ञात",
+            "level_en": "Unknown",
             "color": "#6D7B6F",
             "score": None,
             "pathogen_type": None,
@@ -123,6 +125,7 @@ def compute_severity(class_key):
     return {
         "level": level,
         "level_hi": info["label_hi"],
+        "level_en": info["label_en"],
         "color": info["color"],
         "score": score,
         "pathogen_type": facts["pathogen_type"],
