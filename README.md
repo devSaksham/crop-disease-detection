@@ -83,7 +83,7 @@ CropDiseasePrediction/
 4. Displays:
    - Predicted class
    - Confidence score
-   - Recommended **treatment in Bangla** or English
+   - Recommended **treatment in Hindi** or English
 
 ---
 
