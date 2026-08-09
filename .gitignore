@@ -67,8 +67,8 @@ ipython_config.py
 # pyenv
 .python-version
 
-# Streamlit
-.streamlit/
+# Streamlit (keep the theme config, ignore local secrets)
+.streamlit/secrets.toml
 
 # Model files (keep the trained model but ignore temporary files)
 # *.pth.bak
