@@ -8,6 +8,9 @@ logging.basicConfig(level=logging.INFO)
 import warnings
 warnings.filterwarnings('ignore')
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import torch
 from torchvision import transforms
 from PIL import Image
