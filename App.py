@@ -15,7 +15,8 @@ from src.custom_resnet import prediction_img
 
 from src.Treatment import treatment, _display_names
 from src.Severity import compute_severity
-from src.LocationTreatment import reverse_geocode, get_location_treatment_plan
+from src.LocationTreatment import reverse_geocode, forward_geocode, get_location_treatment_plan
+from src.Weather import get_weather_context, format_weather_hi
 from streamlit_js_eval import get_geolocation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -181,11 +182,14 @@ elif(app_mode=="Disease Recognition"):
             "crop_hi": crop_hi,
             "condition_hi": condition_hi,
         }
-        # a fresh prediction invalidates any previously generated treatment plan / location
-        st.session_state.pop("treatment_plan", None)
-        st.session_state.pop("treatment_plan_error", None)
-        st.session_state.pop("geo_key", None)
-        st.session_state.pop("geo_location", None)
+        # a fresh prediction invalidates any previously generated treatment plan / location / weather
+        for key in (
+            "treatment_plan", "treatment_plan_error",
+            "geo_key", "geo_location",
+            "manual_geo_text", "manual_geo_latlon",
+            "weather_key", "weather_hi",
+        ):
+            st.session_state.pop(key, None)
 
         end = time.time()
         logging.info(f"Prediction Response Time: {end - start:.4f} sec")
@@ -221,12 +225,18 @@ elif(app_mode=="Disease Recognition"):
             )
 
             location_str = None
+            lat_lon = None
             if location_mode == "मैन्युअल रूप से दर्ज करें":
                 manual_location = st.text_input(
                     "अपना गाँव/शहर, राज्य दर्ज करें",
                     key="manual_location",
                 )
                 location_str = manual_location.strip() or None
+                if location_str:
+                    if st.session_state.get("manual_geo_text") != location_str:
+                        st.session_state["manual_geo_text"] = location_str
+                        st.session_state["manual_geo_latlon"] = forward_geocode(location_str)
+                    lat_lon = st.session_state.get("manual_geo_latlon")
             else:
                 loc_data = get_geolocation(component_key="crop_disease_geolocation")
                 if loc_data and "coords" in loc_data:
@@ -238,6 +248,7 @@ elif(app_mode=="Disease Recognition"):
 
                 if st.session_state.get("geo_location"):
                     location_str = st.session_state["geo_location"]
+                    lat_lon = st.session_state.get("geo_key")
                     st.success(f"पहचाना गया स्थान: {location_str}")
                 elif loc_data is None:
                     st.info("स्थान की अनुमति माँगी जा रही है... कृपया अपने ब्राउज़र में अनुमति दें।")
@@ -251,10 +262,21 @@ elif(app_mode=="Disease Recognition"):
                     code = loc_data["error"].get("code", -1)
                     st.warning(error_messages.get(code, "स्थान प्राप्त नहीं हो सका। कृपया मैन्युअल रूप से दर्ज करें।"))
 
+            weather_hi = None
+            if lat_lon:
+                if st.session_state.get("weather_key") != lat_lon:
+                    st.session_state["weather_key"] = lat_lon
+                    with st.spinner("मौसम की जानकारी प्राप्त की जा रही है..."):
+                        st.session_state["weather_hi"] = format_weather_hi(get_weather_context(*lat_lon))
+                weather_hi = st.session_state.get("weather_hi")
+                if weather_hi:
+                    with st.expander("🌦️ मौसम की जानकारी (बीता कल, आज, आने वाला कल)"):
+                        st.text(weather_hi)
+
             if st.button("उपचार योजना प्राप्त करें", disabled=not location_str):
                 with st.spinner("उपचार योजना तैयार की जा रही है..."):
                     plan, error = get_location_treatment_plan(
-                        pred["crop_hi"], pred["condition_hi"], severity, location_str
+                        pred["crop_hi"], pred["condition_hi"], severity, location_str, weather_hi
                     )
                 if error:
                     st.session_state["treatment_plan_error"] = error
