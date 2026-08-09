@@ -13,7 +13,10 @@ from torchvision import transforms
 from PIL import Image
 from src.custom_resnet import prediction_img
 
-from src.Treatment import treatment
+from src.Treatment import treatment, _display_names
+from src.Severity import compute_severity
+from src.LocationTreatment import reverse_geocode, get_location_treatment_plan
+from streamlit_js_eval import get_geolocation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # CauseHouse design-system touches that the native Streamlit theme can't express:
@@ -139,10 +142,10 @@ elif(app_mode=="Disease Recognition"):
     st.header("Disease Recognition")
     test_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
+    image = None
     if test_image is not None:
-        test_image = Image.open(test_image).convert('RGB')
-        #test_image = cv2.resize(test_image, (512, 512))
-        st.image(test_image, caption="Uploaded Image", width=400)
+        pil_image = Image.open(test_image).convert('RGB')
+        st.image(pil_image, caption="Uploaded Image", width=400)
 
         transform = transforms.Compose([
             transforms.Resize((224,224)),
@@ -155,39 +158,116 @@ elif(app_mode=="Disease Recognition"):
             if isinstance(data, (list,tuple)):
                 return [to_device(x, device) for x in data]
             return data.to(device, non_blocking=True)
-        
 
-        image = transform(test_image)
+
+        image = transform(pil_image)
         image = image.unsqueeze(0)  # Add batch dimension [1, 3, 224, 224]
         image = to_device(image, device)
-        #image = image.to(device)
     else:
         st.warning("Please upload an image file to continue.")
 
     #Predict button
-    if(st.button("Predict", type="primary")):
+    if st.button("Predict", type="primary", disabled=image is None):
         st.snow()
         start = time.time()
 
-        result = prediction_img(image)  # custom_resnet.py
+        result, confidence = prediction_img(image)  # custom_resnet.py
+        output = class_name[result]
+        crop_hi, condition_hi, _ = _display_names(output)
 
-        #result = prediction_image(image)  // CNAM_model.py
-        #Reading Labels
+        st.session_state["prediction"] = {
+            "output": output,
+            "confidence": confidence,
+            "crop_hi": crop_hi,
+            "condition_hi": condition_hi,
+        }
+        # a fresh prediction invalidates any previously generated treatment plan / location
+        st.session_state.pop("treatment_plan", None)
+        st.session_state.pop("treatment_plan_error", None)
+        st.session_state.pop("geo_key", None)
+        st.session_state.pop("geo_location", None)
 
-        category =[]
-        for i in class_name:
-            category.append(i)
-        for i in range(len(class_name)):
-            if (i == result):
-                output = category[i]
-                break
+        end = time.time()
+        logging.info(f"Prediction Response Time: {end - start:.4f} sec")
+
+    if "prediction" in st.session_state:
+        pred = st.session_state["prediction"]
+        output = pred["output"]
+        severity = compute_severity(output)
 
         with st.container(border=True):
             st.markdown('<div class="ch-result-anchor"></div><span class="ch-eyebrow">Our Prediction</span>', unsafe_allow_html=True)
-            st.success(f"Predicted Class is --->  {class_name[result]}")
+            st.success(f"Predicted Class is --->  {output}  (विश्वास: {pred['confidence'] * 100:.1f}%)")
+            if severity["level"] == "Healthy":
+                st.markdown(
+                    f'<span class="ch-eyebrow" style="background:{severity["color"]}22;color:{severity["color"]}">'
+                    f'पौधा स्वस्थ है</span>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f'<span class="ch-eyebrow" style="background:{severity["color"]}22;color:{severity["color"]}">'
+                    f'गंभीरता (Severity): {severity["level_hi"]}</span>',
+                    unsafe_allow_html=True,
+                )
             treatment(output)
-        end = time.time()
-        logging.info(f"Prediction Response Time: {end - start:.4f} sec")
+
+        if severity["level"] != "Healthy":
+            st.subheader("स्थान-आधारित उपचार योजना")
+            location_mode = st.radio(
+                "अपना स्थान कैसे देना चाहते हैं?",
+                ["मैन्युअल रूप से दर्ज करें", "मेरा स्थान उपयोग करें (ब्राउज़र)"],
+                key="location_mode",
+            )
+
+            location_str = None
+            if location_mode == "मैन्युअल रूप से दर्ज करें":
+                manual_location = st.text_input(
+                    "अपना गाँव/शहर, राज्य दर्ज करें",
+                    key="manual_location",
+                )
+                location_str = manual_location.strip() or None
+            else:
+                loc_data = get_geolocation(component_key="crop_disease_geolocation")
+                if loc_data and "coords" in loc_data:
+                    coords = loc_data["coords"]
+                    geo_key = (round(coords["latitude"], 4), round(coords["longitude"], 4))
+                    if st.session_state.get("geo_key") != geo_key:
+                        st.session_state["geo_key"] = geo_key
+                        st.session_state["geo_location"] = reverse_geocode(*geo_key)
+
+                if st.session_state.get("geo_location"):
+                    location_str = st.session_state["geo_location"]
+                    st.success(f"पहचाना गया स्थान: {location_str}")
+                elif loc_data is None:
+                    st.info("स्थान की अनुमति माँगी जा रही है... कृपया अपने ब्राउज़र में अनुमति दें।")
+                elif "error" in loc_data:
+                    error_messages = {
+                        0: "आपका ब्राउज़र स्थान सेवा का समर्थन नहीं करता।",
+                        1: "स्थान की अनुमति अस्वीकार कर दी गई। कृपया मैन्युअल रूप से स्थान दर्ज करें।",
+                        2: "स्थान की जानकारी उपलब्ध नहीं है।",
+                        3: "स्थान प्राप्त करने का समय समाप्त हो गया।",
+                    }
+                    code = loc_data["error"].get("code", -1)
+                    st.warning(error_messages.get(code, "स्थान प्राप्त नहीं हो सका। कृपया मैन्युअल रूप से दर्ज करें।"))
+
+            if st.button("उपचार योजना प्राप्त करें", disabled=not location_str):
+                with st.spinner("उपचार योजना तैयार की जा रही है..."):
+                    plan, error = get_location_treatment_plan(
+                        pred["crop_hi"], pred["condition_hi"], severity, location_str
+                    )
+                if error:
+                    st.session_state["treatment_plan_error"] = error
+                    st.session_state.pop("treatment_plan", None)
+                else:
+                    st.session_state["treatment_plan"] = plan
+                    st.session_state.pop("treatment_plan_error", None)
+
+            if "treatment_plan" in st.session_state:
+                st.markdown("#### स्थान-आधारित उपचार योजना")
+                st.markdown(st.session_state["treatment_plan"])
+            elif "treatment_plan_error" in st.session_state:
+                st.error(st.session_state["treatment_plan_error"])
         #  streamlit run App.py
 
 

@@ -123,7 +123,8 @@ def prediction_img(img):
     # 5. Make prediction
     with torch.no_grad():
         output = model(img)
+        probabilities = F.softmax(output, dim=1)
         predicted = output.argmax(dim=1).item()
+        confidence = probabilities[0, predicted].item()
 
-
-    return predicted
+    return predicted, confidence
