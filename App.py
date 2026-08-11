@@ -20,50 +20,183 @@ from src.Treatment import treatment, _display_names
 from src.Severity import compute_severity
 from src.LocationTreatment import reverse_geocode, forward_geocode, get_location_treatment_plan
 from src.Weather import get_weather_context, format_weather
+from src.Speech import synthesize_speech
 from src.i18n import t, get_lang, LANGUAGES
 from streamlit_js_eval import get_geolocation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# CauseHouse design-system touches that the native Streamlit theme can't express:
-# hard offset "sticker" shadows and uppercase pill chips.
+# Apple-style design-system touches the native Streamlit theme can't express:
+# translucent materials, restrained system typography, and instant press feedback
+# instead of the previous neo-brutalist offset shadows.
 st.markdown("""
 <style>
-div[data-testid="stButton"] button[kind="primary"] {
-    box-shadow: 4px 4px 0px 0px #1D2B1F;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    transition: transform 0.05s ease, box-shadow 0.05s ease;
+:root {
+    --apple-surface: rgba(255, 255, 255, 0.72);
+    --apple-border: rgba(0, 0, 0, 0.08);
+    --apple-text-secondary: #6E6E73;
+    --apple-accent: #34C759;
+    --apple-accent-tint: rgba(52, 199, 89, 0.12);
+    --apple-accent-text: #1D7A34;
+    --apple-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
-div[data-testid="stButton"] button[kind="primary"]:hover {
-    transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0px 0px #1D2B1F;
+
+html, body, [class*="css"], .stApp {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+        system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
-div[data-testid="stButton"] button[kind="primary"]:active {
-    transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0px 0px #1D2B1F;
+
+/* Typography: tracking and leading are size-specific, never one fixed value */
+h1 { font-weight: 700; letter-spacing: -0.02em; line-height: 1.08; }
+h2 { font-weight: 600; letter-spacing: -0.015em; line-height: 1.15; }
+h3, h4 { font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; }
+p, li, span, label { letter-spacing: 0; line-height: 1.5; }
+
+/* Buttons: feedback lives on the press and is instant, settle is critically damped (no bounce) */
+div[data-testid="stButton"] button {
+    transition: transform 0.15s var(--apple-ease), box-shadow 0.15s var(--apple-ease),
+        background-color 0.15s var(--apple-ease), border-color 0.15s var(--apple-ease);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
+div[data-testid="stButton"] button:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.10);
+}
+div[data-testid="stButton"] button:active {
+    transform: scale(0.97);
+    transition: transform 0.08s ease-out;
+}
+
+/* Result card: a translucent material layer, not a hard-offset sticker shadow */
 div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] .ch-result-anchor) {
-    box-shadow: 4px 4px 0px 0px #1D2B1F;
+    background: var(--apple-surface);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--apple-border);
+    border-top: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.3s var(--apple-ease);
 }
+
+/* Eyebrow pill: soft tinted chip instead of a solid brutalist tag */
 .ch-eyebrow {
     display: inline-block;
-    background: #BFEA4B;
-    color: #1D2B1F;
-    font-family: "Inter", sans-serif;
+    background: var(--apple-accent-tint);
+    color: var(--apple-accent-text);
     font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 8px 14px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 6px 12px;
     border-radius: 9999px;
     margin-bottom: 14px;
 }
+
+/* Sidebar: translucent chrome, content conceptually scrolls under it */
+section[data-testid="stSidebar"] {
+    background: var(--apple-surface);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-right: 1px solid var(--apple-border);
+}
 section[data-testid="stSidebar"] label p {
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0.01em;
     font-size: 12px;
-    font-weight: 700;
-    color: #6D7B6F;
+    font-weight: 600;
+    color: var(--apple-text-secondary);
+}
+
+/* Primary navigation: a translucent segmented bar, not an underlined tab strip.
+   Streamlit 1.61 renders tabs via React Aria: [role="tablist"] > [data-testid="stTab"],
+   with a .react-aria-SelectionIndicator underline riding under the active tab. */
+div[data-testid="stTabs"] [role="tablist"] {
+    display: inline-flex;
+    gap: 2px;
+    background: var(--apple-surface);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--apple-border);
+    border-radius: 9999px;
+    padding: 4px;
+    width: fit-content;
+}
+div[data-testid="stTabs"] [data-testid="stTab"] {
+    height: auto;
+    padding: 8px 20px;
+    border-radius: 9999px;
+    font-weight: 600;
+    color: var(--apple-text-secondary);
+    transition: background-color 0.2s var(--apple-ease), color 0.2s var(--apple-ease),
+        box-shadow 0.2s var(--apple-ease);
+}
+div[data-testid="stTabs"] [data-testid="stTab"] p {
+    font-weight: 600;
+    letter-spacing: -0.005em;
+}
+div[data-testid="stTabs"] [data-testid="stTab"][aria-selected="true"] {
+    background: #FFFFFF;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+div[data-testid="stTabs"] [data-testid="stTab"][aria-selected="true"] p {
+    color: #1D1D1F;
+}
+div[data-testid="stTabs"] .react-aria-SelectionIndicator {
+    display: none;
+}
+div[data-testid="stTabs"] { margin-bottom: 8px; }
+
+/* Language / location toggles: a segmented pill control, not stacked radio bullets.
+   Still a plain st.radio underneath -- st.segmented_control allows deselecting to
+   None, which would crash the f"level_{lang}" lookups downstream. */
+div[data-testid="stRadio"] div[data-testid="stRadioGroup"] {
+    display: inline-flex;
+    background: var(--apple-surface);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--apple-border);
+    border-radius: 9999px;
+    padding: 4px;
+    gap: 2px;
+}
+div[data-testid="stRadioGroup"] label[data-testid="stRadioOption"] {
+    margin: 0;
+    padding: 6px 16px;
+    border-radius: 9999px;
+    transition: background-color 0.2s var(--apple-ease), box-shadow 0.2s var(--apple-ease);
+}
+div[data-testid="stRadioGroup"] label[data-testid="stRadioOption"]:has(input:checked) {
+    background: #FFFFFF;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+/* the visual circle indicator is a leaf <div> immediately before the text's
+   stMarkdownContainer, several levels deep -- target it by sibling position
+   so nesting depth doesn't matter. The input stays in the DOM (display:none
+   would risk losing native label-click-to-toggle behavior). */
+div[data-testid="stRadioGroup"] label[data-testid="stRadioOption"] div:has(+ [data-testid="stMarkdownContainer"]) {
+    display: none;
+}
+
+/* Upload dropzone: a calm material card instead of the bare native control */
+[data-testid="stFileUploaderDropzone"] {
+    background: var(--apple-surface);
+    border: 1px solid var(--apple-border);
+    border-radius: 16px;
+    transition: box-shadow 0.2s var(--apple-ease), border-color 0.2s var(--apple-ease);
+}
+[data-testid="stFileUploaderDropzone"]:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    border-color: var(--apple-accent);
+}
+
+/* Reduced motion: keep feedback, drop the motion */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+    div[data-testid="stButton"] button:active,
+    div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] .ch-result-anchor) {
+        transform: none !important;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -93,26 +226,27 @@ lang = st.sidebar.radio(
 )
 if st.session_state.get("_prev_lang") != lang:
     st.session_state["_prev_lang"] = lang
-    # the previous treatment plan was generated in the old language -- drop it
+    # the previous treatment plan (and any audio read from it) was generated
+    # in the old language -- drop it
     st.session_state.pop("treatment_plan", None)
     st.session_state.pop("treatment_plan_error", None)
+    st.session_state.pop("prediction_audio_key", None)
+    st.session_state.pop("prediction_audio_bytes", None)
+    st.session_state.pop("plan_audio_key", None)
+    st.session_state.pop("plan_audio_bytes", None)
 
-PAGE_KEYS = ["home", "about", "predict"]
-app_mode = st.sidebar.selectbox(
-    t("select_page"),
-    PAGE_KEYS,
-    format_func=lambda k: {"home": t("nav_home"), "about": t("nav_about"), "predict": t("nav_predict")}[k],
-    key="app_mode",
-)
+# Primary navigation: a modern top tab bar (styled as an Apple segmented bar
+# above) instead of a sidebar page picker.
+tab_home, tab_about, tab_predict = st.tabs([t("nav_home"), t("nav_about"), t("nav_predict")])
 
-if app_mode == "home":
+with tab_home:
     st.markdown(f'<span class="ch-eyebrow">{t("home_eyebrow")}</span>', unsafe_allow_html=True)
     st.title(t("home_title"))
     image_path = 'uploads/UI image/home_page.jpeg'
     st.image(image_path, width=850)
     st.markdown(t("home_body"))
 
-elif app_mode == "about":
+with tab_about:
     st.header(t("about_header"))
     st.markdown(t("about_body"))
 
@@ -128,8 +262,7 @@ elif app_mode == "about":
     st.subheader(t("about_subheader"))
     st.dataframe(df, use_container_width=True)
 
-
-elif app_mode == "predict":
+with tab_predict:
     st.header(t("predict_header"))
     test_image = st.file_uploader(t("upload_label"), type=["jpg", "jpeg", "png"], key="image_uploader")
 
@@ -166,12 +299,14 @@ elif app_mode == "predict":
         output = class_name[result]
 
         st.session_state["prediction"] = {"output": output, "confidence": confidence}
-        # a fresh prediction invalidates any previously generated treatment plan / location / weather
+        # a fresh prediction invalidates any previously generated treatment plan / location / weather / audio
         for key in (
             "treatment_plan", "treatment_plan_error",
             "geo_key", "geo_location",
             "manual_geo_text", "manual_geo_latlon",
             "weather_key", "weather_context",
+            "prediction_audio_key", "prediction_audio_bytes",
+            "plan_audio_key", "plan_audio_bytes",
         ):
             st.session_state.pop(key, None)
 
@@ -199,7 +334,26 @@ elif app_mode == "predict":
                     f'{t("severity_label")}: {severity[f"level_{lang}"]}</span>',
                     unsafe_allow_html=True,
                 )
-            treatment(output, lang)
+            treatment_text = treatment(output, lang)
+
+            prediction_audio_key = (output, lang)
+            if st.button(t("listen_prediction_button"), key="listen_prediction_btn"):
+                spoken_summary = t(
+                    "prediction_summary_spoken",
+                    crop=crop_name, condition=condition_name, severity=severity[f"level_{lang}"],
+                )
+                with st.spinner(t("audio_generating")):
+                    st.session_state["prediction_audio_bytes"] = synthesize_speech(
+                        f"{spoken_summary} {treatment_text}", lang
+                    )
+                st.session_state["prediction_audio_key"] = prediction_audio_key
+
+            if st.session_state.get("prediction_audio_key") == prediction_audio_key:
+                audio_bytes = st.session_state.get("prediction_audio_bytes")
+                if audio_bytes:
+                    st.audio(audio_bytes, format="audio/mp3")
+                else:
+                    st.warning(t("audio_unavailable"))
 
         if severity["level"] != "Healthy":
             st.subheader(t("location_section_header"))
@@ -209,6 +363,7 @@ elif app_mode == "predict":
                 LOCATION_MODE_KEYS,
                 format_func=lambda k: t("location_mode_manual") if k == "manual" else t("location_mode_gps"),
                 key="location_mode",
+                horizontal=True,
             )
 
             location_str = None
@@ -268,8 +423,22 @@ elif app_mode == "predict":
                     st.session_state.pop("treatment_plan_error", None)
 
             if "treatment_plan" in st.session_state:
+                plan_text = st.session_state["treatment_plan"]
                 st.markdown(f"#### {t('plan_header')}")
-                st.markdown(st.session_state["treatment_plan"])
+                st.markdown(plan_text)
+
+                plan_audio_key = (plan_text, lang)
+                if st.button(t("listen_plan_button"), key="listen_plan_btn"):
+                    with st.spinner(t("audio_generating")):
+                        st.session_state["plan_audio_bytes"] = synthesize_speech(plan_text, lang)
+                    st.session_state["plan_audio_key"] = plan_audio_key
+
+                if st.session_state.get("plan_audio_key") == plan_audio_key:
+                    audio_bytes = st.session_state.get("plan_audio_bytes")
+                    if audio_bytes:
+                        st.audio(audio_bytes, format="audio/mp3")
+                    else:
+                        st.warning(t("audio_unavailable"))
             elif "treatment_plan_error" in st.session_state:
                 st.error(st.session_state["treatment_plan_error"])
         #  streamlit run App.py

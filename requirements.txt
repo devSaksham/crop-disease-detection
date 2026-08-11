@@ -9,3 +9,4 @@ groq
 streamlit-js-eval
 requests
 python-dotenv
+gTTS
