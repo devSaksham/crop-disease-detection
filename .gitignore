@@ -57,6 +57,9 @@ venv.bak/
 *.swo
 *~
 
+# Claude Code tooling
+.claude/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 

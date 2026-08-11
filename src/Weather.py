@@ -1,18 +1,23 @@
-"""Weather context (yesterday / today / tomorrow) via OpenWeatherMap.
+"""Weather context (yesterday / today / tomorrow) via Open-Meteo.
 
-Uses the One Call API 3.0 "day summary" endpoint, which returns an
-aggregated summary for a single date -- past, present, or future -- in a
-uniform shape. That lets yesterday/today/tomorrow be fetched with the same
-function instead of mixing separate "current" and "historical" endpoints.
+Open-Meteo's forecast endpoint returns daily aggregates for a requested
+date range in a single request -- past_days=1 pulls in yesterday, and the
+default forecast horizon covers today and tomorrow, so one call covers all
+three days needed here. The API is free and keyless for non-commercial use
+(https://open-meteo.com/en/docs), unlike OpenWeatherMap's day-summary
+endpoint this replaced, which needed a paid "One Call by Call" subscription.
 """
 
-import os
-from datetime import date, timedelta
-
 import requests
-import streamlit as st
 
-_DAY_SUMMARY_URL = "https://api.openweathermap.org/data/3.0/onecall/day_summary"
+_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+_DAILY_VARS = ",".join([
+    "temperature_2m_max",
+    "temperature_2m_min",
+    "precipitation_sum",
+    "cloud_cover_mean",
+    "relative_humidity_2m_mean",
+])
 
 _DAY_LABELS = {
     "hi": {-1: "कल (बीता हुआ)", 0: "आज", 1: "कल (आने वाला)"},
@@ -25,53 +30,44 @@ _FIELD_LABELS = {
 }
 
 
-def _get_api_key():
-    api_key = os.environ.get("OPENWEATHER_API_KEY")
-    if api_key:
-        return api_key
+def get_weather_context(lat, lon):
+    """Fetch yesterday/today/tomorrow daily summaries for (lat, lon).
+
+    Returns a dict {-1: {...} or None, 0: ..., 1: ...} keyed by day offset
+    from today -- a day is None if its data is missing, so a failure is
+    visible rather than silently missing. Returns None outright if the
+    request itself fails (network error, bad coordinates, etc).
+    """
     try:
-        return st.secrets["OPENWEATHER_API_KEY"]
+        response = requests.get(
+            _FORECAST_URL,
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "daily": _DAILY_VARS,
+                "timezone": "auto",
+                "past_days": 1,
+                "forecast_days": 2,
+            },
+            timeout=6,
+        )
+        response.raise_for_status()
+        daily = response.json()["daily"]
     except Exception:
         return None
 
-
-def _fetch_day_summary(lat, lon, day_str, api_key):
-    response = requests.get(
-        _DAY_SUMMARY_URL,
-        params={"lat": lat, "lon": lon, "date": day_str, "units": "metric", "appid": api_key},
-        timeout=6,
-    )
-    response.raise_for_status()
-    return response.json()
-
-
-def get_weather_context(lat, lon):
-    """Fetch yesterday/today/tomorrow day summaries for (lat, lon).
-
-    Returns a dict {-1: {...} or None, 0: ..., 1: ...} keyed by day offset
-    from today -- a day is None if its fetch failed, so a failure is visible
-    rather than silently missing. Returns None outright if
-    OPENWEATHER_API_KEY isn't configured.
-
-    Note: this endpoint requires OpenWeatherMap's separate "One Call by
-    Call" subscription -- a plain/free-tier API key gets HTTP 401 on every
-    call here (all three offsets fail identically), verified live. If your
-    key isn't subscribed to that plan, every day comes back None and
-    format_weather() returns None -- the app degrades gracefully, but no
-    weather context reaches the treatment plan until you subscribe at
-    https://openweathermap.org/price.
-    """
-    api_key = _get_api_key()
-    if not api_key:
-        return None
-
-    today = date.today()
     context = {}
     for offset in (-1, 0, 1):
-        day_str = (today + timedelta(days=offset)).isoformat()
+        index = offset + 1  # past_days=1 shifts yesterday to index 0
         try:
-            context[offset] = _fetch_day_summary(lat, lon, day_str, api_key)
-        except Exception:
+            context[offset] = {
+                "temp_min": daily["temperature_2m_min"][index],
+                "temp_max": daily["temperature_2m_max"][index],
+                "humidity": daily["relative_humidity_2m_mean"][index],
+                "precip": daily["precipitation_sum"][index],
+                "cloud": daily["cloud_cover_mean"][index],
+            }
+        except (KeyError, IndexError, TypeError):
             context[offset] = None
     return context
 
@@ -107,14 +103,10 @@ def format_weather(context, lang="hi"):
             lines.append(f"{day_labels[offset]}: {_NO_DATA_LABEL[lang]}")
             continue
         any_data = True
-        temp = day.get("temperature", {})
-        humidity = day.get("humidity", {})
-        precip = day.get("precipitation", {})
-        cloud = day.get("cloud_cover", {})
         lines.append(
-            f"{day_labels[offset]}: {fields['temp']} {_num(temp.get('min'))}–{_num(temp.get('max'))}°C, "
-            f"{fields['humidity']} {_num(humidity.get('afternoon'), 0)}%, "
-            f"{fields['precip']} {_num(precip.get('total'))}mm, "
-            f"{fields['cloud']} {_num(cloud.get('afternoon'), 0)}%"
+            f"{day_labels[offset]}: {fields['temp']} {_num(day['temp_min'])}–{_num(day['temp_max'])}°C, "
+            f"{fields['humidity']} {_num(day['humidity'], 0)}%, "
+            f"{fields['precip']} {_num(day['precip'])}mm, "
+            f"{fields['cloud']} {_num(day['cloud'], 0)}%"
         )
     return "\n".join(lines) if any_data else None

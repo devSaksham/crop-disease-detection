@@ -1,15 +1,15 @@
 [theme]
 base = "light"
-primaryColor = "#BFEA4B"
-backgroundColor = "#F7F0E6"
-secondaryBackgroundColor = "#FFFDF8"
-textColor = "#1D2B1F"
-linkColor = "#2D3A30"
-borderColor = "#1D2B1F"
-showWidgetBorder = true
-showSidebarBorder = true
-font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-headingFont = "Fraunces:https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
+primaryColor = "#34C759"
+backgroundColor = "#F5F5F7"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1D1D1F"
+linkColor = "#0071E3"
+borderColor = "#D2D2D7"
+showWidgetBorder = false
+showSidebarBorder = false
+font = "sans-serif"
+headingFont = "sans-serif"
 baseFontSize = 16
 baseRadius = "large"
 buttonRadius = "full"

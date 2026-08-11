@@ -7,6 +7,8 @@ advice, locally available products, timing).
 """
 
 import os
+from datetime import date
+
 import requests
 import streamlit as st
 from groq import Groq
@@ -90,41 +92,61 @@ _NO_KEY_ERROR = {
     "en": "GROQ_API_KEY is not set. Please add it to your environment variables or Streamlit secrets.",
 }
 
-_PROMPT_TEMPLATE = {
-    "hi": """आप एक कृषि विशेषज्ञ हैं जो भारतीय किसानों को फसल रोग प्रबंधन में सलाह देते हैं।
+_SYSTEM_PROMPT = {
+    "hi": """आप एक अनुभवी कृषि विस्तार अधिकारी (Krishi Vigyan Kendra विशेषज्ञ) हैं, जो भारत के छोटे और मध्यम \
+किसानों को फसल रोग प्रबंधन में व्यावहारिक सलाह देते हैं।
 
-निम्नलिखित जानकारी के आधार पर एक व्यावहारिक, स्थान-विशिष्ट उपचार योजना हिंदी में दें:
+- हमेशा हिंदी में, स्पष्ट और संक्षिप्त बिंदुओं में उत्तर दें।
+- किसान को छोटे/सीमित बजट वाला मान लें -- सस्ते, स्थानीय रूप से उपलब्ध और जैविक विकल्पों को पहले सुझाएं, \
+उसके बाद ही रासायनिक विकल्प दें।
+- दी गई जानकारी (गंभीरता, इलाज संभव है या नहीं, तारीख, मौसम, स्थान) के अनुसार सलाह को खास तौर पर उसी स्थिति \
+के लिए ढालें -- सामान्य/जेनेरिक सलाह न दें।
+- अगर रोग लाइलाज है, तो "इलाज" का वादा न करें; इसके बजाय रोकथाम, संक्रमित हिस्सों को हटाने और आगे फैलने से \
+रोकने पर ध्यान केंद्रित करें।
+- जवाब में मार्कडाउन हेडिंग (####) और बुलेट पॉइंट्स का उपयोग करें ताकि यह पढ़ने में आसान हो।""",
+    "en": """You are an experienced agricultural extension officer (Krishi Vigyan Kendra expert) advising \
+small and medium-scale Indian farmers on crop disease management.
+
+- Always respond in English, in clear and concise bullet points.
+- Assume the farmer has a small/limited budget -- suggest cheap, locally available, and organic options \
+first, then chemical options.
+- Tailor the advice specifically to the given context (severity, whether it's curable, date, weather, \
+location) -- avoid generic, one-size-fits-all advice.
+- If the disease has no cure, don't promise a "cure"; focus instead on containment, removing infected \
+parts, and preventing further spread.
+- Use markdown headings (####) and bullet points in the response so it's easy to scan.""",
+}
+
+_USER_PROMPT_TEMPLATE = {
+    "hi": """निम्नलिखित जानकारी के आधार पर एक व्यावहारिक, स्थान-विशिष्ट उपचार योजना दें:
 
 फसल: {crop}
 रोग/अवस्था: {condition}
-गंभीरता: {severity_level} (रोगजनक प्रकार: {pathogen_type}, फैलाव दर: {spread_rate}, उपज पर प्रभाव: {yield_impact})
+गंभीरता: {severity_level} (रोगजनक प्रकार: {pathogen_type}, इलाज संभव: {curable}, फैलाव दर: {spread_rate}, उपज पर प्रभाव: {yield_impact})
+आज की तारीख: {today}
 किसान का स्थान: {location}
 {weather_block}
 कृपया निम्नलिखित शामिल करें:
 1. तत्काल कदम (Immediate steps)
-2. अनुशंसित दवा/उत्पाद (स्थानीय रूप से उपलब्ध विकल्पों सहित)
-3. छिड़काव/उपचार का समय और तरीका -- यदि मौसम की जानकारी दी गई है तो बारिश/नमी को ध्यान में रखकर सही दिन चुनें
+2. अनुशंसित दवा/उत्पाद (स्थानीय रूप से उपलब्ध और किफायती विकल्पों सहित)
+3. छिड़काव/उपचार का समय और तरीका -- वर्तमान मौसम और आज की तारीख (मौसम/सीजन) को ध्यान में रखकर सही दिन चुनें
 4. इस क्षेत्र की जलवायु और मौसम को ध्यान में रखते हुए सावधानियां
-5. भविष्य में बचाव के उपाय
-
-जवाब संक्षिप्त, स्पष्ट और व्यावहारिक बिंदुओं में दें।""",
-    "en": """You are an agricultural expert advising Indian farmers on crop disease management.
-
-Based on the following information, give a practical, location-specific treatment plan in English:
+5. भविष्य में बचाव के उपाय""",
+    "en": """Based on the following information, give a practical, location-specific treatment plan:
 
 Crop: {crop}
 Disease/condition: {condition}
-Severity: {severity_level} (pathogen type: {pathogen_type}, spread rate: {spread_rate}, yield impact: {yield_impact})
+Severity: {severity_level} (pathogen type: {pathogen_type}, curable: {curable}, spread rate: {spread_rate}, yield impact: {yield_impact})
+Today's date: {today}
 Farmer's location: {location}
 {weather_block}
 Please include:
 1. Immediate steps
-2. Recommended medicine/product (including locally available options)
-3. Spraying/treatment timing and method -- if weather information is given, pick the right day accounting for rain/humidity
+2. Recommended medicine/product (including locally available, affordable options)
+3. Spraying/treatment timing and method -- pick the right day accounting for the current weather and \
+today's date/season
 4. Precautions specific to this region's climate and current weather
-5. Future prevention measures
-
-Keep the answer concise, clear, and in practical bullet points.""",
+5. Future prevention measures""",
 }
 
 _WEATHER_BLOCK_LABEL = {
@@ -133,6 +155,11 @@ _WEATHER_BLOCK_LABEL = {
 }
 
 _NOT_APPLICABLE = {"hi": "लागू नहीं", "en": "N/A"}
+
+_CURABLE_LABELS = {
+    "hi": {True: "हां", False: "नहीं -- कोई ज्ञात इलाज नहीं, केवल प्रबंधन/रोकथाम संभव", None: "लागू नहीं"},
+    "en": {True: "Yes", False: "No known cure -- only management/containment is possible", None: "N/A"},
+}
 
 
 def get_location_treatment_plan(crop, condition, severity, location, weather_text=None, lang="hi"):
@@ -151,19 +178,24 @@ def get_location_treatment_plan(crop, condition, severity, location, weather_tex
 
     na = _NOT_APPLICABLE.get(lang, _NOT_APPLICABLE["hi"])
     severity_level = severity.get(f"level_{lang}") or severity.get("level_hi", na)
+    curable_labels = _CURABLE_LABELS.get(lang, _CURABLE_LABELS["hi"])
+    curable = curable_labels.get(severity.get("curable"), na)
 
     weather_block = ""
     if weather_text:
         weather_block = f"\n{_WEATHER_BLOCK_LABEL.get(lang, _WEATHER_BLOCK_LABEL['hi'])}:\n{weather_text}\n"
 
-    template = _PROMPT_TEMPLATE.get(lang, _PROMPT_TEMPLATE["hi"])
-    prompt = template.format(
+    system_prompt = _SYSTEM_PROMPT.get(lang, _SYSTEM_PROMPT["hi"])
+    template = _USER_PROMPT_TEMPLATE.get(lang, _USER_PROMPT_TEMPLATE["hi"])
+    user_prompt = template.format(
         crop=crop,
         condition=condition,
         severity_level=severity_level,
         pathogen_type=severity.get("pathogen_type") or na,
+        curable=curable,
         spread_rate=severity.get("spread_rate") or na,
         yield_impact=severity.get("yield_impact") or na,
+        today=date.today().isoformat(),
         location=location,
         weather_block=weather_block,
     )
@@ -171,7 +203,10 @@ def get_location_treatment_plan(crop, condition, severity, location, weather_tex
     try:
         response = client.chat.completions.create(
             model=_GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
         )
         return response.choices[0].message.content, None
     except Exception as e:

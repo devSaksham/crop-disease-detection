@@ -607,17 +607,24 @@ def _display_names(output, lang='hi'):
 
 
 def treatment(output, lang='hi'):
+    """Render the treatment guidance for `output` and return the markdown text.
+
+    The return value lets callers (e.g. text-to-speech) reuse the exact
+    text that was rendered instead of re-deriving it.
+    """
     if lang == 'hi':
         detailed, healthy_tpl, generic_tpl = DETAILED_TREATMENT, _HEALTHY_TEMPLATE, _GENERIC_TEMPLATE
     else:
         detailed, healthy_tpl, generic_tpl = DETAILED_TREATMENT_EN, _HEALTHY_TEMPLATE_EN, _GENERIC_TEMPLATE_EN
 
     if output in detailed:
-        st.markdown(detailed[output])
-        return
-
-    crop, condition, condition_key = _display_names(output, lang)
-    if condition_key == 'healthy':
-        st.markdown(healthy_tpl.format(cls=output, crop=crop))
+        text = detailed[output]
     else:
-        st.markdown(generic_tpl.format(cls=output, crop=crop, condition=condition))
+        crop, condition, condition_key = _display_names(output, lang)
+        if condition_key == 'healthy':
+            text = healthy_tpl.format(cls=output, crop=crop)
+        else:
+            text = generic_tpl.format(cls=output, crop=crop, condition=condition)
+
+    st.markdown(text)
+    return text

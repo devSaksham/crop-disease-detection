@@ -13,7 +13,6 @@ _STRINGS = {
     "language_label": {"hi": "भाषा / Language", "en": "भाषा / Language"},
 
     "dashboard_title": {"hi": "डैशबोर्ड", "en": "Dashboard"},
-    "select_page": {"hi": "पेज चुनें", "en": "Select Page"},
     "nav_home": {"hi": "होम", "en": "Home"},
     "nav_about": {"hi": "जानकारी", "en": "About"},
     "nav_predict": {"hi": "रोग पहचान", "en": "Disease Recognition"},
@@ -27,7 +26,7 @@ _STRINGS = {
 हमारा उद्देश्य फसल रोगों की पहचान को तेज़ और आसान बनाना है। पौधे की एक तस्वीर अपलोड करें, और हमारी प्रणाली रोग के किसी भी लक्षण का विश्लेषण करेगी। आइए मिलकर अपनी फसलों की रक्षा करें और बेहतर उपज सुनिश्चित करें!
 
 ### यह कैसे काम करता है
-1. **तस्वीर अपलोड करें:** साइडबार में **रोग पहचान** पेज पर जाएं और संदिग्ध रोग वाले पौधे की तस्वीर अपलोड करें।
+1. **तस्वीर अपलोड करें:** ऊपर **रोग पहचान** टैब पर जाएं और संदिग्ध रोग वाले पौधे की तस्वीर अपलोड करें।
 2. **विश्लेषण:** हमारी प्रणाली उन्नत एल्गोरिदम का उपयोग करके संभावित रोगों की पहचान करेगी।
 3. **परिणाम:** परिणाम और आगे की कार्रवाई के लिए सुझाव देखें।
 
@@ -37,10 +36,10 @@ _STRINGS = {
 - **तेज़ और कुशल:** कुछ ही सेकंड में परिणाम, तुरंत निर्णय लेने में मदद।
 
 ### शुरू करें
-साइडबार में **रोग पहचान** पेज पर क्लिक करें और अपने पौधों के लिए हमारी प्रणाली का लाभ उठाएं!
+ऊपर **रोग पहचान** टैब पर क्लिक करें और अपने पौधों के लिए हमारी प्रणाली का लाभ उठाएं!
 
 ### हमारे बारे में
-प्रोजेक्ट, हमारी टीम और हमारे लक्ष्यों के बारे में और जानने के लिए **जानकारी** पेज देखें।
+प्रोजेक्ट, हमारी टीम और हमारे लक्ष्यों के बारे में और जानने के लिए **जानकारी** टैब देखें।
 """,
         "en": """
 Welcome to the Plant Disease Recognition System! 🌿🔍
@@ -48,7 +47,7 @@ Welcome to the Plant Disease Recognition System! 🌿🔍
 Our mission is to help in identifying plant diseases efficiently. Upload an image of a plant, and our system will analyze it to detect any signs of diseases. Together, let's protect our crops and ensure a healthier harvest!
 
 ### How It Works
-1. **Upload Image:** Go to the **Disease Recognition** page and upload an image of a plant with suspected diseases.
+1. **Upload Image:** Go to the **Disease Recognition** tab above and upload an image of a plant with suspected diseases.
 2. **Analysis:** Our system will process the image using advanced algorithms to identify potential diseases.
 3. **Results:** View the results and recommendations for further action.
 
@@ -58,10 +57,10 @@ Our mission is to help in identifying plant diseases efficiently. Upload an imag
 - **Fast and Efficient:** Receive results in seconds, allowing for quick decision-making.
 
 ### Get Started
-Click on the **Disease Recognition** page in the sidebar to upload an image and experience the power of our Plant Disease Recognition System!
+Click on the **Disease Recognition** tab to upload an image and experience the power of our Plant Disease Recognition System!
 
 ### About Us
-Learn more about the project, our team, and our goals on the **About** page.
+Learn more about the project, our team, and our goals on the **About** tab.
 """,
     },
 
@@ -104,6 +103,18 @@ A new directory containing 33 test images is created later for prediction purpos
     "confidence": {"hi": "विश्वास", "en": "Confidence"},
     "plant_healthy": {"hi": "पौधा स्वस्थ है", "en": "The plant appears healthy"},
     "severity_label": {"hi": "गंभीरता (Severity)", "en": "Severity"},
+
+    "prediction_summary_spoken": {
+        "hi": "फसल: {crop}. रोग या अवस्था: {condition}. गंभीरता: {severity}.",
+        "en": "Crop: {crop}. Condition: {condition}. Severity: {severity}.",
+    },
+    "listen_prediction_button": {"hi": "🔊 सुनें", "en": "🔊 Listen"},
+    "listen_plan_button": {"hi": "🔊 उपचार योजना सुनें", "en": "🔊 Listen to treatment plan"},
+    "audio_generating": {"hi": "ऑडियो तैयार किया जा रहा है...", "en": "Generating audio..."},
+    "audio_unavailable": {
+        "hi": "ऑडियो उपलब्ध नहीं है। कृपया बाद में पुनः प्रयास करें।",
+        "en": "Audio isn't available right now. Please try again later.",
+    },
 
     "location_section_header": {"hi": "स्थान-आधारित उपचार योजना", "en": "Location-based Treatment Plan"},
     "location_mode_label": {"hi": "अपना स्थान कैसे देना चाहते हैं?", "en": "How would you like to provide your location?"},
