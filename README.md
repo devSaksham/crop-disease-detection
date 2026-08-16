@@ -19,7 +19,7 @@ This project is a deep learning-based web application for identifying plant leaf
 ## 🧠 Model Details
 
 - Framework: PyTorch
-- Architecture: Custom CNN with ResNet and CBAM CNN
+- Architecture: Custom CNN, benchmarked against EfficientNet during training — the custom CNN came out on top on macro-F1, so the app is built around it
 - Image Size:  `224x224` (adjusted per model)
 - Dataset: [PlantVillage dataset](https://www.kaggle.com/emmarex/plantdisease), custom-annotated crop dataset
 - Classes: Total 38 Classes e.g. `Tomato___Late_blight`, `Potato___Early_blight`, `Apple___Scab`, etc.
@@ -105,5 +105,5 @@ CropDiseasePrediction/
 ## 🙏 Acknowledgements
 
 - [PlantVillage Dataset](https://www.kaggle.com/emmarex/plantdisease)
-- [Custom resnet CNN](..)
+- Custom CNN architecture
 - [Streamlit](https://streamlit.io/)
