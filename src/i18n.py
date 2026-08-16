@@ -144,6 +144,10 @@ A new directory containing 33 test images is created later for prediction purpos
         "en": "🌦️ Weather Information (yesterday, today, tomorrow)",
     },
 
+    "plan_disclaimer": {
+        "hi": "⚠️ यह उपचार योजना AI-जनित मार्गदर्शन मात्र है। कोई भी रासायनिक उपचार लागू करने से पहले स्थानीय कृषि अधिकारी या विशेषज्ञ से सलाह लें।",
+        "en": "⚠️ This treatment plan is AI-generated guidance only. Consult a local agriculture officer or expert before applying any chemical treatment.",
+    },
     "get_plan_button": {"hi": "उपचार योजना प्राप्त करें", "en": "Get Treatment Plan"},
     "plan_generating": {"hi": "उपचार योजना तैयार की जा रही है...", "en": "Preparing treatment plan..."},
     "plan_header": {"hi": "स्थान-आधारित उपचार योजना", "en": "Location-based Treatment Plan"},

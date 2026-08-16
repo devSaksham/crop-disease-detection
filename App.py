@@ -410,6 +410,7 @@ with tab_predict:
                     with st.expander(t("weather_expander")):
                         st.text(weather_text)
 
+            st.caption(t("plan_disclaimer"))
             if st.button(t("get_plan_button"), disabled=not location_str, key="get_plan_btn"):
                 with st.spinner(t("plan_generating")):
                     plan, error = get_location_treatment_plan(
