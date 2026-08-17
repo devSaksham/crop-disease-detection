@@ -13,7 +13,7 @@ from groq import Groq
 
 _NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
 _NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
-_GROQ_MODEL = "llama-3.3-70b-versatile"
+_GROQ_MODEL = "openai/gpt-oss-120b"
 
 
 def reverse_geocode(lat, lon):
