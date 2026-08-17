@@ -31,7 +31,7 @@ _STRINGS = {
 3. **परिणाम:** परिणाम और आगे की कार्रवाई के लिए सुझाव देखें।
 
 ### हमें क्यों चुनें?
-- **सटीकता:** सटीक रोग पहचान के लिए अत्याधुनिक मशीन लर्निंग तकनीकों का उपयोग।
+- **सटीकता:** मिर्च, आलू और टमाटर की 15 फसल/रोग श्रेणियों पर प्रशिक्षित मॉडल, जिसने परीक्षण डेटा पर 95%+ सटीकता हासिल की है।
 - **उपयोग में आसान:** सहज और सरल इंटरफ़ेस।
 - **तेज़ और कुशल:** कुछ ही सेकंड में परिणाम, तुरंत निर्णय लेने में मदद।
 
@@ -39,7 +39,7 @@ _STRINGS = {
 ऊपर **रोग पहचान** टैब पर क्लिक करें और अपने पौधों के लिए हमारी प्रणाली का लाभ उठाएं!
 
 ### हमारे बारे में
-प्रोजेक्ट, हमारी टीम और हमारे लक्ष्यों के बारे में और जानने के लिए **जानकारी** टैब देखें।
+प्रोजेक्ट, डेटासेट और मॉडल के प्रदर्शन के बारे में और जानने के लिए **जानकारी** टैब देखें।
 """,
         "en": """
 Welcome to the Plant Disease Recognition System! 🌿🔍
@@ -52,7 +52,7 @@ Our mission is to help in identifying plant diseases efficiently. Upload an imag
 3. **Results:** View the results and recommendations for further action.
 
 ### Why Choose Us?
-- **Accuracy:** Our system utilizes state-of-the-art machine learning techniques for accurate disease detection.
+- **Accuracy:** Trained on 15 crop/disease categories across Pepper, Potato, and Tomato, reaching over 95% accuracy on held-out test data.
 - **User-Friendly:** Simple and intuitive interface for seamless user experience.
 - **Fast and Efficient:** Receive results in seconds, allowing for quick decision-making.
 
@@ -60,7 +60,7 @@ Our mission is to help in identifying plant diseases efficiently. Upload an imag
 Click on the **Disease Recognition** tab to upload an image and experience the power of our Plant Disease Recognition System!
 
 ### About Us
-Learn more about the project, our team, and our goals on the **About** tab.
+Learn more about the project, dataset, and model performance on the **About** tab.
 """,
     },
 
@@ -68,26 +68,38 @@ Learn more about the project, our team, and our goals on the **About** tab.
     "about_body": {
         "hi": """
 #### डेटासेट के बारे में
-यह डेटासेट मूल डेटासेट से ऑफ़लाइन ऑगमेंटेशन के माध्यम से बनाया गया है। मूल डेटासेट इस GitHub रिपॉज़िटरी पर उपलब्ध है।
-इस डेटासेट में स्वस्थ और रोगग्रस्त फसल पत्तियों की लगभग 87 हज़ार RGB तस्वीरें हैं, जिन्हें 38 अलग-अलग वर्गों में बांटा गया है। पूरे डेटासेट को 80/20 अनुपात में प्रशिक्षण और सत्यापन सेट में विभाजित किया गया है, जिसमें डायरेक्टरी संरचना बनाए रखी गई है।
-पूर्वानुमान के लिए बाद में 33 परीक्षण तस्वीरों वाली एक नई डायरेक्टरी बनाई गई।
+मॉडल को Kaggle के **PlantVillage** डेटासेट ([emmarex/plantdisease](https://www.kaggle.com/datasets/emmarex/plantdisease)) पर प्रशिक्षित किया गया है, जिसमें मिर्च (Pepper), आलू (Potato) और टमाटर (Tomato) की पत्तियों की **20,624 RGB तस्वीरें** हैं, जो **15 फसल/रोग वर्गों** में बंटी हैं। डेटासेट को स्तरीकृत (stratified) 70/15/15 अनुपात में प्रशिक्षण/सत्यापन/परीक्षण सेट में बांटा गया, ताकि सेटों के बीच कोई डेटा लीक न हो।
+
 #### सामग्री
-1. प्रशिक्षण (70,295 तस्वीरें)
-2. परीक्षण (33 तस्वीरें)
-3. सत्यापन (17,572 तस्वीरें)
+1. प्रशिक्षण (14,436 तस्वीरें — 70%)
+2. सत्यापन (3,094 तस्वीरें — 15%)
+3. परीक्षण (3,094 तस्वीरें — 15%)
+
+#### मॉडल का प्रदर्शन
+प्रशिक्षण नोटबुक में दो मॉडल आज़माए गए — एक कस्टम CNN और EfficientNetB3 (ट्रांसफर लर्निंग)। परीक्षण सेट पर सर्वश्रेष्ठ प्रदर्शन कस्टम CNN का रहा:
+- सटीकता (Accuracy): **95.51%**
+- संतुलित सटीकता (Balanced Accuracy): **94.86%**
+- Macro F1: **94.59%**
+- Top-3 सटीकता: **99.81%**
 """,
         "en": """
 #### About Dataset
-This dataset is recreated using offline augmentation from the original dataset. The original dataset can be found on this GitHub repo.
-This dataset consists of about 87K RGB images of healthy and diseased crop leaves which is categorized into 38 different classes. The total dataset is divided into 80/20 ratio of training and validation set preserving the directory structure.
-A new directory containing 33 test images is created later for prediction purpose.
+The model is trained on Kaggle's **PlantVillage** dataset ([emmarex/plantdisease](https://www.kaggle.com/datasets/emmarex/plantdisease)), consisting of **20,624 RGB images** of Pepper, Potato, and Tomato leaves across **15 crop/disease classes**. The dataset was split into a stratified 70/15/15 train/validation/test set with no overlap between splits.
+
 #### Content
-1. train (70295 images)
-2. test (33 images)
-3. validation (17572 images)
+1. train (14,436 images — 70%)
+2. validation (3,094 images — 15%)
+3. test (3,094 images — 15%)
+
+#### Model Performance
+The training notebook evaluated two models — a custom CNN and EfficientNetB3 (transfer learning). The custom CNN was the best performer on the held-out test set:
+- Accuracy: **95.51%**
+- Balanced Accuracy: **94.86%**
+- Macro F1: **94.59%**
+- Top-3 Accuracy: **99.81%**
 """,
     },
-    "about_eyebrow": {"hi": "🌿 38 वर्ग", "en": "🌿 38 Classes"},
+    "about_eyebrow": {"hi": "🌿 15 वर्ग", "en": "🌿 15 Classes"},
     "about_subheader": {"hi": "हर फसल और रोग की सूची", "en": "List of Every Crop with Disease"},
     "table_crop_col": {"hi": "फसल का नाम (Crop)", "en": "Crop"},
     "table_condition_col": {"hi": "रोग/अवस्था (Condition)", "en": "Condition"},

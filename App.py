@@ -213,6 +213,18 @@ class_name = ['Apple___Apple_scab', 'Apple___Black_rot', 'Apple___Cedar_apple_ru
                            'Tomato___Leaf_Mold', 'Tomato___Septoria_leaf_spot', 'Tomato___Spider_mites Two-spotted_spider_mite',
                       'Tomato___Target_Spot', 'Tomato___Tomato_mosaic_virus', 'Tomato___Tomato_Yellow_Leaf_Curl_Virus']
 
+# The 15 crop/disease classes from the current training notebook
+# (plantvillage_disease_detection_ran.ipynb, Kaggle emmarex/plantdisease
+# dataset -- Pepper/Potato/Tomato only). Shown on the About tab; kept
+# separate from `class_name` above, which indexes the deployed model's
+# 38-class output and must not change.
+about_class_name = ['Pepper,_bell___Bacterial_spot', 'Pepper,_bell___healthy',
+                     'Potato___Early_blight', 'Potato___healthy', 'Potato___Late_blight',
+                     'Tomato___Bacterial_spot', 'Tomato___Early_blight', 'Tomato___healthy',
+                     'Tomato___Late_blight', 'Tomato___Leaf_Mold', 'Tomato___Septoria_leaf_spot',
+                     'Tomato___Spider_mites Two-spotted_spider_mite', 'Tomato___Target_Spot',
+                     'Tomato___Tomato_mosaic_virus', 'Tomato___Tomato_Yellow_Leaf_Curl_Virus']
+
 
 #Sidebar.............................................................
 st.sidebar.title(t("dashboard_title"))
@@ -251,7 +263,7 @@ with tab_about:
     st.markdown(t("about_body"))
 
     data = []
-    for cls in class_name:
+    for cls in about_class_name:
         crop, condition, condition_key = _display_names(cls, lang)
         if condition_key == 'healthy':
             condition = t("table_healthy")
