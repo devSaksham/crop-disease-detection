@@ -25,6 +25,39 @@ from src.i18n import t, get_lang, LANGUAGES
 from streamlit_js_eval import get_geolocation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
+@st.cache_data(show_spinner=False)
+def _get_audio(text, lang):
+    """Cached gTTS synthesis, keyed on the exact text+language pair.
+
+    Avoids re-hitting the network for audio that's already been generated
+    (e.g. re-opening the same prediction after navigating away and back).
+    """
+    return synthesize_speech(text, lang)
+
+
+@st.fragment
+def _listen_fragment(text, lang, key_prefix, button_label):
+    """Isolated Listen button + audio player.
+
+    Wrapped in @st.fragment so clicking it only reruns this block instead
+    of the whole page -- without this, Streamlit's full-script rerun fades
+    the entire prediction card while gTTS's network call is in flight,
+    which looked like a UI glitch/flash.
+    """
+    audio_key = (text, lang)
+    if st.button(button_label, key=f"listen_{key_prefix}_btn"):
+        with st.spinner(t("audio_generating")):
+            st.session_state[f"{key_prefix}_audio_bytes"] = _get_audio(text, lang)
+        st.session_state[f"{key_prefix}_audio_key"] = audio_key
+
+    if st.session_state.get(f"{key_prefix}_audio_key") == audio_key:
+        audio_bytes = st.session_state.get(f"{key_prefix}_audio_bytes")
+        if audio_bytes:
+            st.audio(audio_bytes, format="audio/mp3")
+        else:
+            st.warning(t("audio_unavailable"))
+
 # Apple-style design-system touches the native Streamlit theme can't express:
 # translucent materials, restrained system typography, and instant press feedback
 # instead of the previous neo-brutalist offset shadows.
@@ -348,24 +381,13 @@ with tab_predict:
                 )
             treatment_text = treatment(output, lang)
 
-            prediction_audio_key = (output, lang)
-            if st.button(t("listen_prediction_button"), key="listen_prediction_btn"):
-                spoken_summary = t(
-                    "prediction_summary_spoken",
-                    crop=crop_name, condition=condition_name, severity=severity[f"level_{lang}"],
-                )
-                with st.spinner(t("audio_generating")):
-                    st.session_state["prediction_audio_bytes"] = synthesize_speech(
-                        f"{spoken_summary} {treatment_text}", lang
-                    )
-                st.session_state["prediction_audio_key"] = prediction_audio_key
-
-            if st.session_state.get("prediction_audio_key") == prediction_audio_key:
-                audio_bytes = st.session_state.get("prediction_audio_bytes")
-                if audio_bytes:
-                    st.audio(audio_bytes, format="audio/mp3")
-                else:
-                    st.warning(t("audio_unavailable"))
+            spoken_summary = t(
+                "prediction_summary_spoken",
+                crop=crop_name, condition=condition_name, severity=severity[f"level_{lang}"],
+            )
+            _listen_fragment(
+                f"{spoken_summary} {treatment_text}", lang, "prediction", t("listen_prediction_button")
+            )
 
         if severity["level"] != "Healthy":
             st.subheader(t("location_section_header"))
@@ -439,18 +461,7 @@ with tab_predict:
                 st.markdown(f"#### {t('plan_header')}")
                 st.markdown(plan_text)
 
-                plan_audio_key = (plan_text, lang)
-                if st.button(t("listen_plan_button"), key="listen_plan_btn"):
-                    with st.spinner(t("audio_generating")):
-                        st.session_state["plan_audio_bytes"] = synthesize_speech(plan_text, lang)
-                    st.session_state["plan_audio_key"] = plan_audio_key
-
-                if st.session_state.get("plan_audio_key") == plan_audio_key:
-                    audio_bytes = st.session_state.get("plan_audio_bytes")
-                    if audio_bytes:
-                        st.audio(audio_bytes, format="audio/mp3")
-                    else:
-                        st.warning(t("audio_unavailable"))
+                _listen_fragment(plan_text, lang, "plan", t("listen_plan_button"))
             elif "treatment_plan_error" in st.session_state:
                 st.error(st.session_state["treatment_plan_error"])
         #  streamlit run App.py
