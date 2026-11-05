@@ -242,7 +242,7 @@ tab_home, tab_about, tab_predict = st.tabs([t("nav_home"), t("nav_about"), t("na
 with tab_home:
     st.markdown(f'<span class="ch-eyebrow">{t("home_eyebrow")}</span>', unsafe_allow_html=True)
     st.title(t("home_title"))
-    image_path = 'uploads/UI image/home_page.jpeg'
+    image_path = 'uploads/home_page.jpeg'
     st.image(image_path, width=850)
     st.markdown(t("home_body"))
 
